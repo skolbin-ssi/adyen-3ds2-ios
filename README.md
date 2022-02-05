@@ -65,7 +65,7 @@ ADYServiceParameters *parameters = [ADYServiceParameters new];
 
 Use the `transaction`'s `authenticationRequestParameters` in your call to `/authorise3ds2`.
 
-:warning: _`[ADYService transactionWithMessageVersion:error:]` defaults to the highest supported message version if nil is passed, if you want an older protocol version, make sure to specify it._
+:warning: _`[ADYService transactionWithMessageVersion:error:]` requires the message version to be passed, please fill in the same message version as in the AReq, you should be able to get the message version decided by the 3DS server from its response when initiating the payment, if you use the Adyen 3DS server please see [the documentation](https://docs.adyen.com/api-explorer/#/Payment/v64/post/authorise__reqParam_threeDS2RequestData-messageVersion)._
 
 :warning: _Keep a reference to your `ADYTransaction` instance until the transaction is finished._
 
@@ -112,11 +112,26 @@ ADYAppearanceConfiguration *appearanceConfiguration = [ADYAppearanceConfiguratio
 [ADYService serviceWithParameters:parameters appearanceConfiguration:appearanceConfiguration completionHandler:...];
 ```
 
+### Get the SDK version
+
+If you want to get the currently used sdk version - for example to send to the [`/authorise` end point](https://docs.adyen.com/api-explorer/#/Payment/v64/post/authorise__reqParam_threeDS2RequestData-sdkVersion), you can get it using:
+
+```
+NSString* threeDS2SDKVersion = ADY3DS2SDKVersion();
+```
+
+```
+let threeDS2SDKVersion = ADY3DS2SDKVersion()
+```
+
 ## See also
 
  * [Complete Documentation](https://docs.adyen.com/classic-integration/3d-secure-2-classic-integration/ios-sdk-integration/)
 
  * [SDK Reference](https://adyen.github.io/adyen-3ds2-ios/Docs/index.html)
+ * [Reporting security issues](https://www.adyen.help/hc/en-us/articles/115001187330-How-do-I-report-a-possible-security-issue-to-Adyen-).
+ * [Security best practices](https://docs.adyen.com/online-payments/classic-integrations/api-integration-ecommerce/3d-secure/native-3ds2/ios-sdk-integration/security-best-practices).
+ * [Data security at Adyen](https://docs.adyen.com/development-resources/adyen-data-security).
 
 ## License
 
