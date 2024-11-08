@@ -26,6 +26,7 @@ Drag the dynamic `XCFramework/Dynamic/Adyen3DS2.xcframework` to the `Frameworks,
 1. Drag the static `XCFramework/Static/Adyen3DS2.xcframework` to the `Frameworks, Libraries, and Embedded Content` section in your general target settings.
 2. Make sure the static `Adyen3DS2.xcframework` is not embedded.
 3. Select `Adyen3DS2.bundle` inside `Adyen3DS2.xcframework` and check "Copy items if needed", then select "Add".
+4. The privacy manifest should be included/merged in your app bundle.
 
 ### Swift Package Manager
 
@@ -46,10 +47,9 @@ https://developer.apple.com/documentation/xcode/adding_package_dependencies_to_y
 First, create an instance of `ADYServiceParameters` with the additional data retrieved from your call to `/authorise`.
 Then, use the class method on `ADYService` to create a new service. This service can be used to create a new transaction.
 ```objc
-ADYServiceParameters *parameters = [ADYServiceParameters new];
-[parameters setDirectoryServerIdentifier:...]; // Retrieved from Adyen.
-[parameters setDirectoryServerPublicKey:...]; // Retrieved from Adyen.
-[parameters setDirectoryServerRootCertificates:...]; // Retrieved from Adyen.
+ADYServiceParameters *copy = [[ADYServiceParameters alloc] initWithDirectoryServerIdentifier:... // Retrieved from Adyen.
+                                                                    directoryServerPublicKey:... // Retrieved from Adyen.
+                                                             directoryServerRootCertificates:...]; // Retrieved from Adyen.
 
 [ADYService serviceWithParameters:parameters appearanceConfiguration:nil completionHandler:^(ADYService *service) {
     NSError *error = nil;
@@ -58,12 +58,13 @@ ADYServiceParameters *parameters = [ADYServiceParameters new];
         ADYAuthenticationRequestParameters *authenticationRequestParameters = [transaction authenticationRequestParameters];
         // Submit the authenticationRequestParameters to /authorise3ds2.
     } else {
-        // An error occurred.
+        NSString *errorRepresentation = [error base64Representation];
+        // Submit `errorRepresentation` to [Adyen backend](https://docs.adyen.com/api-explorer/Payment/64/post/authorise3ds2).
     }
 }];
 ```
 
-Use the `transaction`'s `authenticationRequestParameters` in your call to `/authorise3ds2`.
+Use the `transaction`'s `authenticationRequestParameters` in your call to [Adyen backend](https://docs.adyen.com/api-explorer/Payment/64/post/authorise3ds2).
 
 :warning: _`[ADYService transactionWithMessageVersion:error:]` requires the message version to be passed, please fill in the same message version as in the AReq, you should be able to get the message version decided by the 3DS server from its response when initiating the payment, if you use the Adyen 3DS server please see [the documentation](https://docs.adyen.com/api-explorer/#/Payment/v64/post/authorise__reqParam_threeDS2RequestData-messageVersion)._
 
@@ -73,12 +74,12 @@ Use the `transaction`'s `authenticationRequestParameters` in your call to `/auth
 
 ### Performing a challenge
 
-In case a challenge is required, create an instance of `ADYChallengeParameters` with values from the additional data retrieved from your call to `/authorise3ds2`.
+In case a challenge is required, create an instance of `ADYChallengeParameters` with values from the additional data retrieved from your call to [Adyen backend](https://docs.adyen.com/api-explorer/Payment/64/post/authorise3ds2).
 
 ```objc
 NSDictionary *additionalData = ...; // Retrieved from Adyen.
 ADYChallengeParameters *parameters = [ADYChallengeParameters challengeParametersWithServerTransactionIdentifier:additionalData[@"threeds2.threeDS2ResponseData.threeDSServerTransID"]
-                                                                                         threeDSRequestorAppURL:[NSURL URLWithString:@"{YOUR_CUSTOM_APP_URL}"] // Or nil if for example you're using protocol version 2.1.0
+                                                                                         threeDSRequestorAppURL:[NSURL URLWithString:@"{YOUR_APP_URL}"] // Or nil if for example you're using protocol version 2.1.0
                                                                                        ACSTransactionIdentifier:additionalData[@"threeds2.threeDS2ResponseData.acsTransID"]
                                                                                              ACSReferenceNumber:additionalData[@"threeds2.threeDS2ResponseData.acsReferenceNumber"]
                                                                                                ACSSignedContent:additionalData[@"threeds2.threeDS2ResponseData.acsSignedContent"]];
@@ -92,13 +93,28 @@ Use these challenge parameters to perform the challenge with the `transaction` y
     if (result) {
         NSString *transactionStatus = [result transactionStatus];
         // Submit the transactionStatus to /authorise3ds2.
-    } else {
+    } else if (error) {
         // An error occurred.
+        
+        // collect the error context information if available
+        NSString* _Nullable serverTransactionIdentifier = [[error userInfo] valueForKey:ADYProtocolErrorServerTransactionIdentifierKey];
+        NSString* _Nullable acsTransactionIdentifier = [[error userInfo] valueForKey:ADYProtocolErrorACSTransactionIdentifierKey];
+        NSString* _Nullable sdkTransactionIdentifier = [[error userInfo] valueForKey:ADYProtocolErrorSDKTransactionIdentifierKey];
+        NSString* _Nullable errorDetails = [[error userInfo] valueForKey:ADYProtocolErrorDetailKey];
+        NSString* _Nullable errorDomain = [[error userInfo] valueForKey:ADYProtocolErrorDomain];
+        NSString* _Nullable errorLocalizedDescription = [[error userInfo] valueForKey:NSLocalizedDescriptionKey];
+        
+        NSString *errorRepresentation = [error base64Representation];
+        // Submit `errorRepresentation` to [Adyen backend](https://docs.adyen.com/api-explorer/Payment/64/post/authorise3ds2)
+
+        // Submit the transactionStatus = "U" to [Adyen backend](https://docs.adyen.com/api-explorer/Payment/64/post/authorise3ds2).
+    } else {
+        // Should never happen
     }
 }];
 ```
 
-When the challenge is completed successfully, submit the `transactionStatus` in the `result` in your second call to `/authorise3ds2`.
+When the challenge is completed successfully, submit the `transactionStatus` in the `result` in your second call to [Adyen backend](https://docs.adyen.com/api-explorer/Payment/64/post/authorise3ds2).
 
 ### Customizing the UI
 
@@ -130,7 +146,7 @@ let threeDS2SDKVersion = ADY3DS2SDKVersion()
 
  * [Complete Documentation](https://docs.adyen.com/classic-integration/3d-secure-2-classic-integration/ios-sdk-integration/)
 
- * [SDK Reference](https://adyen.github.io/adyen-3ds2-ios/Docs/index.html)
+ * [SDK Reference](https://adyen.github.io/adyen-3ds2-ios/)
  * [Reporting security issues](https://www.adyen.help/hc/en-us/articles/115001187330-How-do-I-report-a-possible-security-issue-to-Adyen-).
  * [Security best practices](https://docs.adyen.com/online-payments/classic-integrations/api-integration-ecommerce/3d-secure/native-3ds2/ios-sdk-integration/security-best-practices).
  * [Data security at Adyen](https://docs.adyen.com/development-resources/adyen-data-security).
